@@ -1,54 +1,95 @@
-import {
-  Route,
-  Routes,
-  useNavigate,
-} from "react-router-dom";
-
-import logo from "./images/devdao.svg";
-
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faEthereum } from "@fortawesome/free-brands-svg-icons";
-import {
-  faQrcode,
-  faTools,
-  faTicketAlt,
-} from "@fortawesome/free-solid-svg-icons";
-
-import Connect from "./components/Connect";
-import {
-  Button,
-  Flex,
-  Image,
-  Menu,
-  MenuButton,
-  MenuList,
-  MenuItem,
-  MenuDivider,
-} from "@chakra-ui/react";
-
-import {
-  ChevronDownIcon,
-  ChevronUpIcon,
-} from "@chakra-ui/icons";
-
-import Admin from "./pages/Admin";
-import Buy from "./pages/Buy";
-import CheckIn from "./pages/CheckIn";
-import Page from "./layouts/Page";
-import Wallet from "./pages/Wallet";
+import { ChevronDownIcon, ChevronUpIcon } from '@chakra-ui/icons';
+import { Button, Flex, Image, Menu, MenuButton, MenuDivider, MenuItem, MenuList } from '@chakra-ui/react';
+import { faEthereum } from '@fortawesome/free-brands-svg-icons';
+import { faQrcode, faTicketAlt, faTools } from '@fortawesome/free-solid-svg-icons';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { ethers } from 'ethers';
+import { useEffect, useState } from 'react';
+import { Route, Routes, useNavigate } from 'react-router-dom';
+import Connect from './components/Connect';
+import nfTisBooth from './contracts/nfTixBooth.json';
+import logo from './images/devdao.svg';
+import Page from './layouts/Page';
+import Admin from './pages/Admin';
+import Buy from './pages/Buy';
+import CheckIn from './pages/CheckIn';
+import Wallet from './pages/Wallet';
 
 function App() {
   const navigate = useNavigate();
 
+  const [address, setAddress] = useState(null);
+  console.log('address:', address);
+
+  const [connectedContract, setConnectedContract] = useState(null);
+  console.log('connectedContract:', connectedContract);
+
+  const [isOwner, setIsOwner] = useState(false);
+  console.log('isOwner:', isOwner);
+
+  useEffect(() => {
+    const checkIsContractOwner = async () => {
+      if (!address || !connectedContract) {
+        return;
+      }
+
+      const ownerAddress = await connectedContract.owner();
+
+      if (address.toLowerCase() === ownerAddress.toLowerCase()) {
+        setIsOwner(true);
+      } else {
+        setIsOwner(false);
+      }
+    };
+
+    checkIsContractOwner();
+  }, [address, connectedContract]);
+
+  useEffect(() => {
+    if (!address) {
+      const previosAddress = localStorage.getItem('nftix-address');
+
+      if (previosAddress) {
+        setAddress(previosAddress);
+      }
+    }
+  }, [address]);
+
+  const getConnectedContract = async () => {
+    const { ethereum } = window;
+    if (!ethereum) return;
+
+    const provider = new ethers.providers.Web3Provider(ethereum);
+    const signer = provider.getSigner();
+    const connectedContract = new ethers.Contract(process.env.REACT_APP_CONTRACT_ID, nfTisBooth.abi, signer);
+    setConnectedContract(connectedContract);
+  };
+
+  useEffect(() => {
+    getConnectedContract();
+  }, []);
+
   return (
     <>
-      <Connect />
+      <Connect
+        address={address}
+        onConnect={(address) => {
+          setAddress(address);
+
+          window.localStorage.setItem('nftix-address', address);
+        }}
+        onDisconnect={() => {
+          setAddress(null);
+
+          window.localStorage.removeItem('nftix-address');
+        }}
+      />
       <Page>
         <Menu
           left="0"
           _hover={{
-            bg: "purple.500",
-            fontWeight: "bold",
+            bg: 'purple.500',
+            fontWeight: 'bold',
           }}
         >
           {({ isOpen }) => (
@@ -59,131 +100,52 @@ function App() {
                 right="16px"
                 as={Button}
                 colorScheme="purple"
-                rightIcon={
-                  isOpen ? (
-                    <ChevronUpIcon />
-                  ) : (
-                    <ChevronDownIcon />
-                  )
-                }
+                rightIcon={isOpen ? <ChevronUpIcon /> : <ChevronDownIcon />}
               >
                 Actions
               </MenuButton>
               <MenuList>
-                <MenuItem
-                  onClick={() =>
-                    navigate("/")
-                  }
-                >
-                  <Flex
-                    alignItems="center"
-                    flexDirection="row"
-                    width="100%"
-                    justifyContent="space-between"
-                  >
+                <MenuItem onClick={() => navigate('/')}>
+                  <Flex alignItems="center" flexDirection="row" width="100%" justifyContent="space-between">
                     Buy
-                    <FontAwesomeIcon
-                      icon={faEthereum}
-                      size="lg"
-                    />
+                    <FontAwesomeIcon icon={faEthereum} size="lg" />
                   </Flex>
                 </MenuItem>
                 <MenuDivider />
-                <MenuItem
-                  onClick={() =>
-                    navigate("/wallet")
-                  }
-                >
-                  <Flex
-                    alignItems="center"
-                    flexDirection="row"
-                    width="100%"
-                    justifyContent="space-between"
-                  >
+                <MenuItem isDisabled={!address} onClick={() => navigate('/wallet')}>
+                  <Flex alignItems="center" flexDirection="row" width="100%" justifyContent="space-between">
                     Your Tickets
-                    <FontAwesomeIcon
-                      icon={faTicketAlt}
-                      size="lg"
-                    />
+                    <FontAwesomeIcon icon={faTicketAlt} size="lg" />
                   </Flex>
                 </MenuItem>
                 <MenuDivider />
-                <MenuItem
-                  onClick={() =>
-                    navigate(
-                      "/check-in"
-                    )
-                  }
-                >
-                  <Flex
-                    alignItems="center"
-                    flexDirection="row"
-                    width="100%"
-                    justifyContent="space-between"
-                  >
+                <MenuItem onClick={() => navigate('/check-in')} isDisabled={!isOwner}>
+                  <Flex alignItems="center" flexDirection="row" width="100%" justifyContent="space-between">
                     Check In
-                    <FontAwesomeIcon
-                      icon={faQrcode}
-                      size="lg"
-                    />
+                    <FontAwesomeIcon icon={faQrcode} size="lg" />
                   </Flex>
                 </MenuItem>
                 <MenuDivider />
-                <MenuItem
-                  onClick={() =>
-                    navigate("/admin")
-                  }
-                >
-                  <Flex
-                    alignItems="center"
-                    flexDirection="row"
-                    width="100%"
-                    justifyContent="space-between"
-                  >
+                <MenuItem onClick={() => navigate('/admin')} isDisabled={!isOwner}>
+                  <Flex alignItems="center" flexDirection="row" width="100%" justifyContent="space-between">
                     Settings
-                    <FontAwesomeIcon
-                      icon={faTools}
-                      size="lg"
-                    />
+                    <FontAwesomeIcon icon={faTools} size="lg" />
                   </Flex>
                 </MenuItem>
               </MenuList>
             </>
           )}
         </Menu>
-        <Flex
-          alignItems="flex-start"
-          flex="1 1 auto"
-          flexDirection="column"
-          justifyContent="center"
-          width="100%"
-        >
-          <Image
-            src={logo}
-            alt="DevDAO logo"
-            margin="36px auto 12px"
-            width="15%"
-          />
+        <Flex alignItems="flex-start" flex="1 1 auto" flexDirection="column" justifyContent="center" width="100%">
+          <Image src={logo} alt="DevDAO logo" margin="36px auto 12px" width="15%" />
           <Routes>
-            <Route
-              path="/"
-              element={<Buy />}
-            />
+            <Route path="/" element={<Buy connectedContract={connectedContract} />} />
 
-            <Route
-              path="/check-in"
-              element={<CheckIn />}
-            />
+            <Route path="/check-in" element={<CheckIn connectedContract={connectedContract} />} />
 
-            <Route
-              path="/admin"
-              element={<Admin />}
-            />
+            <Route path="/admin" element={<Admin isOwner={isOwner} connectedContract={connectedContract} />} />
 
-            <Route
-              path="/wallet"
-              element={<Wallet />}
-            />
+            <Route path="/wallet" element={<Wallet address={address} />} />
           </Routes>
         </Flex>
       </Page>
